@@ -147,7 +147,7 @@
             const visible=v.z>=-1 && v.z<=1;
             const el=obj.element;
             el.style.display = visible ? 'block' : 'none';
-            el.style.transform = `translate3d(${x}px, ${y}px, 0)`;
+            el.style.transform = `translate(-50%, -50%) translate3d(${x}px, ${y}px, 0)`;
           });
           // GC: remove labels that are no longer in the scene
           for(const o of this._labels){
