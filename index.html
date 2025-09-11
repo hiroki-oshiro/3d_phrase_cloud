@@ -58,9 +58,18 @@
     body.menu-closed .app{grid-template-columns:1fr}
 
     @media (max-width: 768px){
-      .app{grid-template-columns:1fr;}
-      .sidebar{display:none;}
-      body:not(.menu-closed) .sidebar{display:block !important;}
+      .app{grid-template-columns:1fr; position: relative;}
+      .sidebar{
+        display:none;
+        position:absolute;
+        top:0;
+        left:0;
+        width:100%;       /* or a fixed width like 280px */
+        height:100%;
+        overflow:auto;
+        z-index:10;
+      }
+      body:not(.menu-closed) .sidebar{display:block;}
     }
     
     dialog { border:none; border-radius:12px; background:var(--panel); color:var(--text); padding:20px; }
