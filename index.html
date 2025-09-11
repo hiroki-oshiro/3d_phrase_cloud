@@ -13,8 +13,10 @@
     h1 { margin:0 0 12px; font-size:18px; letter-spacing:.02em; }
     .muted { color:var(--muted); font-size:12px; }
     form { display:grid; gap:10px; margin-top:16px; }
+    form > div { display:grid; gap:6px; }
+    .row > div { display:grid; gap:6px; }
     label { font-size:12px; color:var(--muted); }
-    input[type="text"], textarea, select { width:92%; background:var(--panel); color:var(--text); border:1px solid rgba(255,255,255,.08); border-radius:10px; padding:10px 12px; outline:none; }
+    input[type="text"], textarea, select { width:100%; box-sizing:border-box; background:var(--panel); color:var(--text); border:1px solid rgba(255,255,255,.08); border-radius:10px; padding:10px 12px; outline:none; }
     textarea { min-height:64px; resize:vertical; }
     .row { display:grid; grid-template-columns:1fr auto; gap:10px; }
     button { background:#1f2a44; color:var(--text); border:1px solid rgba(255,255,255,.12); border-radius:12px; padding:10px 12px; cursor:pointer; }
@@ -29,6 +31,10 @@
     .options { display:grid; gap:6px; margin-top:10px; font-size:12px; }
     .options label { display:flex; align-items:center; gap:8px; }
 
+    @media (max-width:480px){
+      .toolbar { grid-template-columns:1fr; }
+    }
+
     /* DOMラベル（選択/コピー/リンク可） */
     .label { background: rgba(7,11,24,0.6); border:1px solid rgba(255,255,255,0.1); border-radius:10px; padding:6px 10px; white-space:nowrap; pointer-events:auto; box-shadow:0 6px 18px rgba(0,0,0,0.4); }
     .label a { color:#fff; text-decoration: underline; }
@@ -40,9 +46,16 @@
     .info { position:absolute; right:16px; bottom:16px; max-width:420px; background:rgba(7,11,24,0.7); border:1px solid rgba(255,255,255,0.12); border-radius:12px; padding:12px 14px; font-size:13px; line-height:1.5; backdrop-filter: blur(4px); }
     .info .head { font-weight:700; margin-bottom:6px; }
     .warn { position:absolute; inset:0; display:none; align-items:center; justify-content:center; text-align:center; padding:24px; background:rgba(0,0,0,0.5); font-size:14px; }
-  .menu-toggle{position:absolute;left:16px;top:16px;z-index:5;background:#1f2a44;color:#fff;border:1px solid rgba(255,255,255,.2);border-radius:10px;padding:6px 10px;}
+  .menu-toggle{position:absolute;left:16px;top:16px;z-index:5;background:#1f2a44;color:#fff;border:1px solid rgba(255,255,255,.2);border-radius:10px;padding:6px 10px;display:none;}
+  @media (max-width:768px){.menu-toggle{display:block;}}
     body.menu-closed .sidebar{display:none}
     body.menu-closed .app{grid-template-columns:1fr}
+
+    @media (max-width: 768px){
+      .app{grid-template-columns:1fr;}
+      .sidebar{display:none;}
+      body:not(.menu-closed) .sidebar{display:block;}
+    }
     
     dialog { border:none; border-radius:12px; background:var(--panel); color:var(--text); padding:20px; }
     dialog::backdrop { background:rgba(0,0,0,0.5); }
@@ -123,6 +136,11 @@
 
   <script>
   window.addEventListener('load', () => {
+        const btn = document.getElementById('toggleMenu');
+    if(window.innerWidth <= 768){
+      document.body.classList.add('menu-closed');
+      if(btn){ btn.setAttribute('aria-pressed','true'); btn.textContent='メニューを開く'; }
+    }
     const warn = document.getElementById('warn');
     const info = document.getElementById('info');
     const promptDialog = document.getElementById('promptDialog');
@@ -597,7 +615,20 @@
       for(const obj of group.children){ obj.position.add(obj.userData.v); if(obj.position.length() > radius*1.2){ obj.position.setLength(radius); obj.userData.v.multiplyScalar(-1); } }
       controls.update(); renderer.render(scene, camera); labelRenderer.render(scene, camera);
     }
-    function onResize(){ const w=holder.clientWidth, h=holder.clientHeight; camera.aspect=w/h; camera.updateProjectionMatrix(); renderer.setSize(w,h); labelRenderer.setSize(w,h); }
+    function onResize(){
+      const w=holder.clientWidth, h=holder.clientHeight;
+      camera.aspect = w/h; camera.updateProjectionMatrix();
+      renderer.setSize(w,h); labelRenderer.setSize(w,h);
+      const btn = document.getElementById('toggleMenu');
+      if(window.innerWidth > 768){
+        document.body.classList.remove('menu-closed');
+        if(btn){ btn.setAttribute('aria-pressed','false'); btn.textContent = 'メニューを閉じる'; }
+      }else if(btn){
+        const closed = document.body.classList.contains('menu-closed');
+        btn.setAttribute('aria-pressed', closed ? 'true' : 'false');
+        btn.textContent = closed ? 'メニューを開く' : 'メニューを閉じる';
+      }
+    }
     window.addEventListener('resize', onResize);
 
     // ---------- Self Test (console) ----------
