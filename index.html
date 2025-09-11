@@ -259,7 +259,15 @@
 
     // ---------- State ----------
     const STORAGE_KEY = 'valuesCloud:v1';
+    const SAMPLE_ITEMS = [
+      { text: '殀寿貳わず、身を修めて以て之れを俟つは、命を立つる所以なり', detail: '', weight: 1, ts: Date.now() },
+      { text: '自由と清新', detail: '', weight: 4, ts: Date.now() },
+      { text: '平和と民主主義', detail: '', weight: 3, ts: Date.now() },
+      { text: '未来を信じ、未来に生きる', detail: '', weight: 2, ts: Date.now() },
+      { text: '挑戦をもっと自由に', detail: '', weight: 5, ts: Date.now() }
+    ];
     let state = loadState();
+    if (state.items.length === 0) { state.items = SAMPLE_ITEMS.slice(); saveState(); }    
     function loadState(){ try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || { items: [] }; } catch { return { items: [] }; } }
     function saveState(){ localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
 
