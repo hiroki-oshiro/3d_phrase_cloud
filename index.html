@@ -106,8 +106,12 @@
     <dialog id="promptDialog">
     <p>対象分野を入力してください</p>
     <input type="text" id="promptField" placeholder="例：物理学" />
+    <textarea id="promptOutput" readonly style="display:none; margin-top:10px;"></textarea>
+    <div id="promptNote" class="tiny" style="display:none; margin-top:4px;">コピー後にお使いのAIツールに貼り付けてください</div>
+    <div id="promptCopied" class="tiny" style="display:none; margin-top:4px; color:var(--accent);">コピーしました</div>
     <div style="margin-top:10px; display:flex; gap:10px; justify-content:flex-end;">
       <button id="promptCancel" type="button">キャンセル</button>
+      <button id="promptCopy" type="button" style="display:none;">コピー</button>
       <button id="promptGenerate" type="button" class="primary">生成</button>
     </div>
   </dialog>
@@ -123,6 +127,10 @@
     const info = document.getElementById('info');
     const promptDialog = document.getElementById('promptDialog');
     const promptField = document.getElementById('promptField');
+    const promptOutput = document.getElementById('promptOutput');
+    const promptNote = document.getElementById('promptNote');
+    const promptCopy = document.getElementById('promptCopy');
+    const promptCopied = document.getElementById('promptCopied');
 
     // ================= Embedded minimal CSS2D (fallback) =================
     (function ensureCSS2D(){
@@ -535,6 +543,10 @@
 
     on('promptBtn','click', ()=>{
       promptField.value = '';
+      promptOutput.style.display = 'none';
+      promptNote.style.display = 'none';
+      promptCopy.style.display = 'none';
+      promptCopied.style.display = 'none';
       promptDialog.showModal();
       promptField.focus();
     });
@@ -547,8 +559,18 @@
         `学ぶ人の主体性や好奇心を触発するような、その分野の重要な考え方や知見を、それらを絶対的な真理ではなく探求の可能性として描写してください。`+
         `pattern_number,title,description の3列からなるCSVで、1行目をヘッダーとし、2行目以降にリストを作成するよう指示してください。`+
         `descriptionの最初の一文は動詞で終わる文章で表現してください。その後に、詳しい説明をつけてください。`;
-      navigator.clipboard.writeText(promptText).then(()=>alert('プロンプトをコピーしました'));
-      promptDialog.close();
+      promptOutput.value = promptText;
+      promptOutput.style.display = 'block';
+      promptNote.style.display = 'block';
+      promptCopy.style.display = 'inline-block';
+      promptCopied.style.display = 'none';
+    });
+    on('promptCopy','click', ()=>{
+      const text = promptOutput.value;
+      navigator.clipboard.writeText(text).then(()=>{
+        promptCopied.style.display = 'block';
+        setTimeout(()=>{ promptCopied.style.display = 'none'; }, 2000);
+      });
     });
 
     on('toggleMenu','click', ()=>{
