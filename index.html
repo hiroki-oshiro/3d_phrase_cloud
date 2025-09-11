@@ -24,7 +24,7 @@
     .chip { background:#17233f; border:1px solid rgba(255,255,255,.12); border-radius:999px; padding:6px 10px; font-size:12px; display:inline-flex; align-items:center; gap:8px; }
     .chip .del { background:transparent; border:none; color:#c9d2dc; cursor:pointer; padding:0; font-size:14px; }
     .tiny { font-size:11px; color:var(--muted); }
-    .toolbar { display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px; margin-top:12px; }
+    .toolbar { display:grid; grid-template-columns:repeat(4,1fr); gap:8px; margin-top:12px; }
     .toolbar button { font-size:12px; padding:8px 10px; }
     .options { display:grid; gap:6px; margin-top:10px; font-size:12px; }
     .options label { display:flex; align-items:center; gap:8px; }
@@ -82,9 +82,10 @@
       <div class="toolbar">
         <button id="exportBtn">エクスポート</button>
         <button id="importBtn">インポート</button>
+        <button id="promptBtn">AIプロンプト</button>
         <button id="resetBtn" style="background:#3a1f1f;border-color:#6b1d1d">全消去</button>
       </div>
-      <div class="tiny" style="margin-top:6px">■エクスポートはJSON<br>■インポートはJSON/CSV対応（pattern_number,title,description）<br>※CSVは「description→言葉 / title→説明」で取り込みます<br>■全消去ボタンでリセットできます</div>
+      <div class="tiny" style="margin-top:6px">■エクスポートはJSON<br>■インポートはJSON/CSV対応（pattern_number,title,description）<br>※CSVは「description→言葉 / title→説明」で取り込みます<br>■AIプロンプトボタンで分野に応じた案内文をコピーできます<br>■全消去ボタンでリセットできます</div>
       <h2 style="margin-top:18px; font-size:14px">投稿一覧</h2>
       <div id="chips" class="chips"></div>
     </aside>
@@ -515,6 +516,16 @@
       state = { items: [] };
       saveState();
       refresh();
+    });
+
+    on('promptBtn','click', ()=>{
+      const field = prompt('対象分野を入力してください');
+      if(!field) return;
+      const promptText =
+        `あなたは${field}およびその関連領域で重要視されている考え方を探究するアシスタントです。`+
+        `ユーザーの主体性や好奇心を刺激するため、これらを絶対的な真理ではなく探求の可能性として描写してください。`+
+        `pattern_number,title,description の3列からなるCSVで、1行目をヘッダーとし、2行目以降にリストを作成するよう指示してください。`;
+      navigator.clipboard.writeText(promptText).then(()=>alert('プロンプトをコピーしました'));
     });
 
     on('toggleMenu','click', ()=>{
