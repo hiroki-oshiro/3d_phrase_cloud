@@ -31,6 +31,13 @@
     .options { display:grid; gap:6px; margin-top:10px; font-size:12px; }
     .options label { display:flex; align-items:center; gap:8px; }
 
+    details { margin-top:16px; }
+    details > summary { cursor:pointer; list-style:none; display:flex; align-items:center; gap:8px; font-size:14px; }
+    details > summary::-webkit-details-marker { display:none; }
+    details > summary::before { content:'\25B6'; display:inline-block; margin-right:4px; transition:transform .2s; }
+    details[open] > summary::before { transform:rotate(90deg); }
+    details form, details .options, details .toolbar, details #chips { margin-top:0; }
+
     @media (max-width:480px){
       .toolbar { grid-template-columns:1fr; }
     }
@@ -67,44 +74,55 @@
     <aside class="sidebar">
       <h1>3D Phrases Cloud</h1>
       <div class="muted">大切なフレーズを投稿 → 右の3D空間に即時反映。<br/>保存はブラウザ内（ローカル）です。</div>
-      <form id="valueForm">
-        <div>
-          <label>フレーズ（例：今日こそは、好奇心の暴走、ぎりぎりをいく）</label>
-          <input type="text" id="text" placeholder="フレーズを入力してください" required />
-        </div>
-        <div>
-          <label>ひとこと説明（リンク可）</label>
-          <textarea id="detail" placeholder="どんな場面で大切にしていますか？（URLを含めるとリンクになります）"></textarea>
-        </div>
-        <div class="row">
+      <details id="formSection" open>
+        <summary>投稿フォーム</summary>
+        <form id="valueForm">
           <div>
-            <label>強調度</label>
-            <select id="weight">
-              <option value="1">1（控えめ）</option>
-              <option value="2">2</option>
-              <option value="3" selected>3</option>
-              <option value="4">4</option>
-              <option value="5">5（とても重要）</option>
-            </select>
+            <label>フレーズ（例：今日こそは、好奇心の暴走、ぎりぎりをいく）</label>
+            <input type="text" id="text" placeholder="フレーズを入力してください" required />
           </div>
-          <div style="display:flex; align-items:flex-end;">
-            <button class="primary" type="submit">追加</button>
+          <div>
+            <label>ひとこと説明（リンク可）</label>
+            <textarea id="detail" placeholder="どんな場面で大切にしていますか？（URLを含めるとリンクになります）"></textarea>
           </div>
+          <div class="row">
+            <div>
+              <label>強調度</label>
+              <select id="weight">
+                <option value="1">1（控えめ）</option>
+                <option value="2">2</option>
+                <option value="3" selected>3</option>
+                <option value="4">4</option>
+                <option value="5">5（とても重要）</option>
+              </select>
+            </div>
+            <div style="display:flex; align-items:flex-end;">
+              <button class="primary" type="submit">追加</button>
+            </div>
+          </div>
+         </form>
+      </details>
+      <details id="optionsSection" open>
+        <summary>表示設定</summary>
+        <div class="options">
+          <label><input type="checkbox" id="autoRotate" checked> 自動回転</label>
+          <label><input type="checkbox" id="combineDups" checked> 同じ言葉を集計して大きく表示</label>
         </div>
-      </form>
-      <div class="options">
-        <label><input type="checkbox" id="autoRotate" checked> 自動回転</label>
-        <label><input type="checkbox" id="combineDups" checked> 同じ言葉を集計して大きく表示</label>
-      </div>
-      <div class="toolbar">
-        <button id="exportBtn">エクスポート</button>
-        <button id="importBtn">インポート</button>
-        <button id="promptBtn">AIプロンプト</button>
-        <button id="resetBtn" style="background:#3a1f1f;border-color:#6b1d1d">全消去</button>
-      </div>
-      <div class="tiny" style="margin-top:6px">■エクスポートはJSON<br>■インポートはJSON/CSV対応（pattern_number,title,description）<br>※CSVは「description→言葉 / title→説明」で取り込みます<br>■AIプロンプトボタンで分野に応じた案内文をコピーできます<br>■全消去ボタンでリセットできます</div>
-      <h2 style="margin-top:18px; font-size:14px">投稿一覧</h2>
-      <div id="chips" class="chips"></div>
+      </details>
+      <details id="toolbarSection" open>
+        <summary>ツールバー</summary>
+        <div class="toolbar">
+          <button id="exportBtn">エクスポート</button>
+          <button id="importBtn">インポート</button>
+          <button id="promptBtn">AIプロンプト</button>
+          <button id="resetBtn" style="background:#3a1f1f;border-color:#6b1d1d">全消去</button>  
+        </div>
+        <div class="tiny" style="margin-top:6px">■エクスポートはJSON<br>■インポートはJSON/CSV対応（pattern_number,title,description）<br>※CSVは「description→言葉 / title→説明」で取り込みます<br>■AIプロンプトボタンで分野に応じた案内文をコピーできます<br>■全消去ボタンでリセットできます</div>
+      </details>
+      <details id="listSection" open>
+        <summary>投稿一覧</summary>
+        <div id="chips" class="chips"></div>
+      </details>
     </aside>
 
     <main class="scene">
@@ -150,6 +168,16 @@
     const promptCopy = document.getElementById('promptCopy');
     const promptCopied = document.getElementById('promptCopied');
 
+    const sectionIds = ['formSection','optionsSection','toolbarSection','listSection'];
+    sectionIds.forEach(id => {
+      const el = document.getElementById(id);
+      if(!el) return;
+      const key = `section:${id}:open`;
+      const stored = localStorage.getItem(key);
+      if(stored !== null) el.open = stored === 'true';
+      el.addEventListener('toggle', () => localStorage.setItem(key, el.open));
+    });
+    
     // ================= Embedded minimal CSS2D (fallback) =================
     (function ensureCSS2D(){
       const hasExternal = (window.THREE && THREE.CSS2DRenderer) || window.CSS2DRenderer;
