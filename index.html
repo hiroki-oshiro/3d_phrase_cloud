@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>3D Values Cloud — Prototype (Embedded CSS2D + Orbit Fallback)</title>
+  <title>3D Phrases Cloud — Prototype (Embedded CSS2D + Orbit Fallback)</title>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22/>">
   <style>
     :root { --bg:#0b1020; --panel:#11182e; --accent:#6ee7ff; --muted:#9aa4b2; --text:#e6edf3; }
@@ -48,7 +48,7 @@
 <body>
   <div class="app">
     <aside class="sidebar">
-      <h1>3D Values Cloud</h1>
+      <h1>3D Phrases Cloud</h1>
       <div class="muted">フォームで価値観を投稿 → 右の3D空間に即時反映。<br/>保存はブラウザ内（ローカル）です。</div>
       <form id="valueForm">
         <div>
@@ -112,7 +112,7 @@
     (function ensureCSS2D(){
       const hasExternal = (window.THREE && THREE.CSS2DRenderer) || window.CSS2DRenderer;
       if (hasExternal) return; // 外部が使えるならそれを使う
-      if (!window.THREE){ console.error('[3D Values] THREE not loaded'); return; }
+      if (!window.THREE){ console.error('[3D Phrases] THREE not loaded'); return; }
 
       class SimpleCSS2DObject extends THREE.Object3D {
         constructor(element){ super(); this.element = element; this.element.style.position='absolute'; this.element.style.pointerEvents='auto'; }
@@ -158,7 +158,7 @@
           this._labels = current;
         }
       }
-      window.CSS2DObject = SimpleCSS2DObject; window.CSS2DRenderer = SimpleCSS2DRenderer; console.info('[3D Values] Using embedded CSS2DRenderer');
+      window.CSS2DObject = SimpleCSS2DObject; window.CSS2DRenderer = SimpleCSS2DRenderer; console.info('[3D Phrases] Using embedded CSS2DRenderer');
     })();
     // =====================================================================
 
@@ -166,7 +166,7 @@
     (function ensureOrbit(){
       const hasExternal = (window.THREE && THREE.OrbitControls) || window.OrbitControls;
       if (hasExternal) return; // 外部が使えるならそれを使う
-      if (!window.THREE){ console.error('[3D Values] THREE not loaded'); return; }
+      if (!window.THREE){ console.error('[3D Phrases] THREE not loaded'); return; }
 
       class SimpleOrbitControls {
         constructor(camera, domElement){
@@ -236,7 +236,7 @@
       // グローバル（外部と同名）
       window.OrbitControls = SimpleOrbitControls;
       if(window.THREE){ THREE.OrbitControls = SimpleOrbitControls; }
-      console.info('[3D Values] Using embedded OrbitControls');
+      console.info('[3D Phrases] Using embedded OrbitControls');
     })();
     // =====================================================================
 
@@ -414,7 +414,7 @@
       const size = 10 + Math.min(22, (item.weight||1)*3 + (item.count? item.count*1.5 : 0));
       el.style.fontSize = size + 'px';
       el.innerHTML = `<span class=\"word\" style=\"font-weight:600\">${escapeHtml(item.text)}</span>` +
-        (item.count? ` <span class=\"meta\">×${item.count}</span>` : '') +
+        (item.count > 1 ? ` <span class=\"meta\">×${item.count}</span>` : '') +
         (item.detail? `<div class=\"meta\" style=\"font-size:11px; margin-top:2px\">${linkify(item.detail)}</div>` : '');
 
       const obj = new CSS2DObjectCtor(el);
