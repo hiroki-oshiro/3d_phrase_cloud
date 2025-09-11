@@ -4,6 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>3D Values Cloud — Prototype (Embedded CSS2D + Orbit Fallback)</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22/>">
   <style>
     :root { --bg:#0b1020; --panel:#11182e; --accent:#6ee7ff; --muted:#9aa4b2; --text:#e6edf3; }
     html, body { height:100%; margin:0; background:var(--bg); color:var(--text); font-family:system-ui,-apple-system,"Segoe UI",Roboto,"Noto Sans JP","Hiragino Sans","Yu Gothic UI","Yu Gothic",Meiryo,sans-serif; }
@@ -353,30 +354,8 @@
         } else {
           if (ch === '"') { inQuotes = true; }
           else if (ch === ',') { pushField(); }
-          else if (ch === '
-') { pushField(); pushRow(); }
-          else if (ch === '
-') { /* skip CR */ }
-          else { field += ch; }
-        }
-      }
-      // last field/row
-      pushField(); if (cur.length > 1 || field !== '') { pushRow(); }
-      // Trim BOM if present
-      if (rows.length && rows[0].length && rows[0][0].charCodeAt && rows[0][0].charCodeAt(0) === 65279){
-        rows[0][0] = rows[0][0].slice(1);
-      }
-      return rows;
-    } else {
-            field += ch;
-          }
-        } else {
-          if (ch === '"') { inQuotes = true; }
-          else if (ch === ',') { pushField(); }
-          else if (ch === '
-') { pushField(); pushRow(); }
-          else if (ch === '
-') { /* skip CR */ }
+          else if (ch === '\n') { pushField(); pushRow(); }
+          else if (ch === '\r') { /* skip CR */ }
           else { field += ch; }
         }
       }
