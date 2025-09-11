@@ -1,0 +1,589 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>3D Values Cloud — Prototype (Embedded CSS2D + Orbit Fallback)</title>
+  <style>
+    :root { --bg:#0b1020; --panel:#11182e; --accent:#6ee7ff; --muted:#9aa4b2; --text:#e6edf3; }
+    html, body { height:100%; margin:0; background:var(--bg); color:var(--text); font-family:system-ui,-apple-system,"Segoe UI",Roboto,"Noto Sans JP","Hiragino Sans","Yu Gothic UI","Yu Gothic",Meiryo,sans-serif; }
+    .app { display:grid; grid-template-columns:360px 1fr; height:100%; }
+    .sidebar { padding:20px; background:linear-gradient(180deg,#0e1630 0%,#0b1020 100%); border-right:1px solid rgba(255,255,255,0.05); overflow:auto; }
+    h1 { margin:0 0 12px; font-size:18px; letter-spacing:.02em; }
+    .muted { color:var(--muted); font-size:12px; }
+    form { display:grid; gap:10px; margin-top:16px; }
+    label { font-size:12px; color:var(--muted); }
+    input[type="text"], textarea, select { width:100%; background:var(--panel); color:var(--text); border:1px solid rgba(255,255,255,.08); border-radius:10px; padding:10px 12px; outline:none; }
+    textarea { min-height:64px; resize:vertical; }
+    .row { display:grid; grid-template-columns:1fr auto; gap:10px; }
+    button { background:#1f2a44; color:var(--text); border:1px solid rgba(255,255,255,.12); border-radius:12px; padding:10px 12px; cursor:pointer; }
+    button.primary { background:#133a4a; border-color:#1d6b82; }
+    button:hover { filter:brightness(1.1); }
+    .chips { display:flex; flex-wrap:wrap; gap:6px; margin-top:10px; }
+    .chip { background:#17233f; border:1px solid rgba(255,255,255,.12); border-radius:999px; padding:6px 10px; font-size:12px; display:inline-flex; align-items:center; gap:8px; }
+    .chip .del { background:transparent; border:none; color:#c9d2dc; cursor:pointer; padding:0; font-size:14px; }
+    .tiny { font-size:11px; color:var(--muted); }
+    .toolbar { display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px; margin-top:12px; }
+    .toolbar button { font-size:12px; padding:8px 10px; }
+    .options { display:grid; gap:6px; margin-top:10px; font-size:12px; }
+    .options label { display:flex; align-items:center; gap:8px; }
+
+    /* DOMラベル（選択/コピー/リンク可） */
+    .label { background: rgba(7,11,24,0.6); border:1px solid rgba(255,255,255,0.1); border-radius:10px; padding:6px 10px; white-space:nowrap; pointer-events:auto; box-shadow:0 6px 18px rgba(0,0,0,0.4); }
+    .label a { color:#fff; text-decoration: underline; }
+    .label, .label .word, .label .meta { color:#fff !important; }
+
+    .scene { position:relative; }
+    .canvas-holder { width:100%; height:100%; }
+    .legend { position:absolute; left:16px; bottom:16px; background:rgba(7,11,24,0.6); border:1px solid rgba(255,255,255,0.08); border-radius:10px; padding:8px 12px; font-size:12px; pointer-events:none; }
+    .info { position:absolute; right:16px; bottom:16px; max-width:420px; background:rgba(7,11,24,0.7); border:1px solid rgba(255,255,255,0.12); border-radius:12px; padding:12px 14px; font-size:13px; line-height:1.5; backdrop-filter: blur(4px); }
+    .info .head { font-weight:700; margin-bottom:6px; }
+    .warn { position:absolute; inset:0; display:none; align-items:center; justify-content:center; text-align:center; padding:24px; background:rgba(0,0,0,0.5); font-size:14px; }
+  .menu-toggle{position:absolute;left:16px;top:16px;z-index:5;background:#1f2a44;color:#fff;border:1px solid rgba(255,255,255,.2);border-radius:10px;padding:6px 10px;}
+    body.menu-closed .sidebar{display:none}
+    body.menu-closed .app{grid-template-columns:1fr}
+  </style>
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar">
+      <h1>3D Values Cloud</h1>
+      <div class="muted">フォームで価値観を投稿 → 右の3D空間に即時反映。<br/>保存はブラウザ内（ローカル）です。</div>
+      <form id="valueForm">
+        <div>
+          <label>言葉（例：主体性、探究心、リスペクト）</label>
+          <input type="text" id="text" placeholder="言葉を入力" required />
+        </div>
+        <div>
+          <label>ひとこと説明（リンク可）</label>
+          <textarea id="detail" placeholder="どんな場面で大切にしていますか？（URLを含めるとリンクになります）"></textarea>
+        </div>
+        <div class="row">
+          <div>
+            <label>強調度</label>
+            <select id="weight">
+              <option value="1">1（控えめ）</option>
+              <option value="2">2</option>
+              <option value="3" selected>3</option>
+              <option value="4">4</option>
+              <option value="5">5（とても重要）</option>
+            </select>
+          </div>
+          <div style="display:flex; align-items:flex-end;">
+            <button class="primary" type="submit">追加</button>
+          </div>
+        </div>
+      </form>
+      <div class="options">
+        <label><input type="checkbox" id="autoRotate" checked> 自動回転</label>
+        <label><input type="checkbox" id="combineDups" checked> 同じ言葉を集計して大きく表示</label>
+      </div>
+      <div class="toolbar">
+        <button id="exportBtn">エクスポート</button>
+        <button id="importBtn">インポート</button>
+        <button id="resetBtn" style="background:#3a1f1f;border-color:#6b1d1d">全消去</button>
+      </div>
+      <div class="tiny" style="margin-top:6px">エクスポートはJSON。インポートはJSON/CSV対応（pattern_number,title,description）。CSVは「description→言葉 / title→説明」で取り込みます。全消去ボタンでリセットできます。</div>
+      <h2 style="margin-top:18px; font-size:14px">投稿一覧</h2>
+      <div id="chips" class="chips"></div>
+    </aside>
+
+    <main class="scene">
+      <button class="menu-toggle" id="toggleMenu" aria-pressed="false">メニュー</button>
+      <div class="canvas-holder" id="canvas"></div>
+      <div class="legend">ドラッグで回転／ホイールでズーム／クリックでフォーカス</div>
+      <div class="info" id="info" style="display:none"></div>
+      <div class="warn" id="warn"></div>
+    </main>
+  </div>
+
+  <!-- three はCDN（またはローカル相対パス）/ CSS2DとOrbitは内蔵フォールバックあり -->
+  <script src="https://unpkg.com/three@0.160.0/build/three.min.js" defer></script>
+  <script src="https://unpkg.com/three@0.160.0/examples/js/controls/OrbitControls.js" defer></script>
+  <script src="https://unpkg.com/three@0.160.0/examples/js/renderers/CSS2DRenderer.js" defer></script>
+
+  <script>
+  window.addEventListener('load', () => {
+    const warn = document.getElementById('warn');
+    const info = document.getElementById('info');
+
+    // ================= Embedded minimal CSS2D (fallback) =================
+    (function ensureCSS2D(){
+      const hasExternal = (window.THREE && THREE.CSS2DRenderer) || window.CSS2DRenderer;
+      if (hasExternal) return; // 外部が使えるならそれを使う
+      if (!window.THREE){ console.error('[3D Values] THREE not loaded'); return; }
+
+      class SimpleCSS2DObject extends THREE.Object3D {
+        constructor(element){ super(); this.element = element; this.element.style.position='absolute'; this.element.style.pointerEvents='auto'; }
+      }
+      class SimpleCSS2DRenderer {
+        constructor(){
+          this.domElement = document.createElement('div');
+          this.domElement.style.position = 'absolute';
+          this.domElement.style.top = '0';
+          this.domElement.style.left = '0';
+          this.domElement.style.pointerEvents = 'none';
+          this._size = {width:1, height:1};
+          this._labels = new Set(); // last-frame set
+        }
+        setSize(w,h){
+          this._size.width = w; this._size.height = h;
+          this.domElement.style.width = w+'px';
+          this.domElement.style.height = h+'px';
+        }
+        render(scene,camera){
+          const width=this._size.width, height=this._size.height;
+          const v=new THREE.Vector3();
+          const current = new Set();
+          // Traverse scene and layout labels that exist *now*
+          scene.traverse(obj=>{
+            if(!obj.element) return;
+            current.add(obj);
+            if(!obj.element.parentNode) this.domElement.appendChild(obj.element);
+            obj.updateWorldMatrix(true,false);
+            v.setFromMatrixPosition(obj.matrixWorld).project(camera);
+            const x=(v.x*0.5+0.5)*width; const y=(-v.y*0.5+0.5)*height;
+            const visible=v.z>=-1 && v.z<=1;
+            const el=obj.element;
+            el.style.display = visible ? 'block' : 'none';
+            el.style.transform = `translate3d(${x}px, ${y}px, 0)`;
+          });
+          // GC: remove labels that are no longer in the scene
+          for(const o of this._labels){
+            if(!current.has(o) && o.element && o.element.parentNode === this.domElement){
+              this.domElement.removeChild(o.element);
+            }
+          }
+          this._labels = current;
+        }
+      }
+      window.CSS2DObject = SimpleCSS2DObject; window.CSS2DRenderer = SimpleCSS2DRenderer; console.info('[3D Values] Using embedded CSS2DRenderer');
+    })();
+    // =====================================================================
+
+    // ================= Embedded minimal OrbitControls (fallback) =========
+    (function ensureOrbit(){
+      const hasExternal = (window.THREE && THREE.OrbitControls) || window.OrbitControls;
+      if (hasExternal) return; // 外部が使えるならそれを使う
+      if (!window.THREE){ console.error('[3D Values] THREE not loaded'); return; }
+
+      class SimpleOrbitControls {
+        constructor(camera, domElement){
+          this.camera = camera;
+          this.domElement = domElement || document;
+          this.target = new THREE.Vector3();
+          this.enableDamping = false; this.dampingFactor = 0.1;
+          this.autoRotate = true; this.autoRotateSpeed = 0.7; // approx rad/s
+          this.rotateSpeed = 1.0; this.zoomSpeed = 1.0;
+          this.minDistance = 2; this.maxDistance = 2000;
+          this.minPolarAngle = 0.01; this.maxPolarAngle = Math.PI - 0.01;
+
+          const offset = new THREE.Vector3();
+          const spherical = new THREE.Spherical();
+          const sphericalDelta = new THREE.Spherical(0,0,0);
+          let state = 0; // 0 none, 1 rotate, 2 dolly
+          let pointerStart = {x:0,y:0};
+
+          const getOffset = () => offset.copy(this.camera.position).sub(this.target);
+          const apply = () => {
+            const EPS = 1e-6;
+            const radius = Math.max(this.minDistance, Math.min(this.maxDistance, spherical.radius));
+            spherical.radius = radius;
+            spherical.phi = Math.max(this.minPolarAngle, Math.min(this.maxPolarAngle, spherical.phi));
+            spherical.makeSafe();
+            const newOffset = new THREE.Vector3().setFromSpherical(spherical);
+            this.camera.position.copy(this.target).add(newOffset);
+            this.camera.lookAt(this.target);
+          };
+
+          // init spherical from camera
+          getOffset(); spherical.setFromVector3(offset);
+
+          const onPointerDown = (e)=>{
+            if(e.button===0){ state=1; } else if(e.button===1 || e.button===2){ state=2; }
+            pointerStart.x = e.clientX; pointerStart.y = e.clientY;
+            this.domElement.setPointerCapture && this.domElement.setPointerCapture(e.pointerId||0);
+          };
+          const onPointerMove = (e)=>{
+            const dx = e.clientX - pointerStart.x; const dy = e.clientY - pointerStart.y;
+            pointerStart.x = e.clientX; pointerStart.y = e.clientY;
+            if(state===1){ // rotate
+              const rot = 2*Math.PI * this.rotateSpeed / this.domElement.clientHeight;
+              spherical.theta -= dx * rot;
+              spherical.phi   -= dy * rot;
+            } else if(state===2){ // dolly
+              const scale = Math.pow(0.95, dy * this.zoomSpeed * 0.1);
+              spherical.radius *= scale;
+            }
+          };
+          const onPointerUp = ()=>{ state=0; };
+          const onWheel = (e)=>{ const scale = Math.pow(0.95, e.deltaY * this.zoomSpeed * 0.01); spherical.radius *= scale; };
+
+          this.domElement.addEventListener('pointerdown', onPointerDown);
+          window.addEventListener('pointermove', onPointerMove);
+          window.addEventListener('pointerup', onPointerUp);
+          this.domElement.addEventListener('wheel', onWheel, {passive:true});
+
+          this.update = ()=>{
+            // auto rotate
+            if(this.autoRotate && state===0){ spherical.theta -= (this.autoRotateSpeed * 0.01); }
+            // damping towards target angles is minimal here; sphericalDelta unused for simplicity
+            apply();
+          };
+        }
+      }
+      // グローバル（外部と同名）
+      window.OrbitControls = SimpleOrbitControls;
+      if(window.THREE){ THREE.OrbitControls = SimpleOrbitControls; }
+      console.info('[3D Values] Using embedded OrbitControls');
+    })();
+    // =====================================================================
+
+    // 依存の最終確認
+    if (!window.THREE){
+      warn.style.display = 'flex';
+      warn.innerHTML = '<div><strong>Three.js が読み込めませんでした。</strong><br>CDNがブロックされている場合は three.min.js を相対パスで同梱してください。</div>';
+      return;
+    }
+
+    const CSS2DRendererCtor = (THREE.CSS2DRenderer || window.CSS2DRenderer);
+    const CSS2DObjectCtor   = (THREE.CSS2DObject   || window.CSS2DObject);
+    const OrbitControlsCtor = (THREE.OrbitControls || window.OrbitControls);
+
+    if (!CSS2DRendererCtor || !CSS2DObjectCtor || !OrbitControlsCtor){
+      warn.style.display = 'flex';
+      warn.innerHTML = '<div><strong>依存を読み込めませんでした。</strong><br>three.min.js / OrbitControls / CSS2DRenderer を同梱するか、本ページの内蔵フォールバックを有効にしてください。</div>';
+      return;
+    }
+
+    // ---------- State ----------
+    const STORAGE_KEY = 'valuesCloud:v1';
+    let state = loadState();
+    function loadState(){ try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || { items: [] }; } catch { return { items: [] }; } }
+    function saveState(){ localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
+
+    // ---------- 3D Setup ----------
+    const holder = document.getElementById('canvas');
+    const scene = new THREE.Scene();
+    scene.fog = new THREE.FogExp2('#0b1020', 0.008);
+    const camera = new THREE.PerspectiveCamera(55, holder.clientWidth/holder.clientHeight, 0.1, 2000);
+    camera.position.set(0, 0, 60);
+
+    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+    renderer.setSize(holder.clientWidth, holder.clientHeight);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+    holder.appendChild(renderer.domElement);
+
+    const labelRenderer = new CSS2DRendererCtor();
+    labelRenderer.setSize(holder.clientWidth, holder.clientHeight);
+    labelRenderer.domElement.style.position = 'absolute';
+    labelRenderer.domElement.style.top = '0';
+    labelRenderer.domElement.style.pointerEvents = 'none';
+    holder.appendChild(labelRenderer.domElement);
+
+    // ★ 重要: コントロールは WebGL の canvas 上でイベントを拾う
+    const controls = new OrbitControlsCtor(camera, renderer.domElement);
+    controls.enableDamping = true; controls.autoRotate = true; controls.autoRotateSpeed = 0.2;
+
+    const ambient = new THREE.AmbientLight('#a0b8ff', 0.6); scene.add(ambient);
+    const dir = new THREE.DirectionalLight('#88aaff', 0.6); dir.position.set(10,20,10); scene.add(dir);
+
+    // 背景スター
+    (function createStars(){
+      const geo = new THREE.BufferGeometry();
+      const count = 900; const positions = new Float32Array(count*3);
+      for(let i=0;i<count;i++){ const r = 600 * Math.cbrt(Math.random()); const t = Math.random()*Math.PI*2; const p = Math.acos(2*Math.random()-1); positions[i*3]=r*Math.sin(p)*Math.cos(t); positions[i*3+1]=r*Math.sin(p)*Math.sin(t); positions[i*3+2]=r*Math.cos(p); }
+      geo.setAttribute('position', new THREE.BufferAttribute(positions,3));
+      const mat = new THREE.PointsMaterial({ size: 1.2, transparent:true, opacity:0.6 });
+      scene.add(new THREE.Points(geo, mat));
+    })();
+
+    // ---------- Data Placement ----------
+    const radius = 28; const group = new THREE.Group(); scene.add(group);
+
+    function randomOnSphere(R){
+      const u=Math.random(); const v=Math.random();
+      const theta=2*Math.PI*u; const phi=Math.acos(2*v-1);
+      return new THREE.Vector3(
+        R*Math.sin(phi)*Math.cos(theta),
+        R*Math.sin(phi)*Math.sin(theta),
+        R*Math.cos(phi)
+      );
+    }
+
+    function buildAggregated(items){
+      const combine = document.getElementById('combineDups').checked;
+      if(!combine) return items.map(it=>({...it, count:1}));
+      const map = new Map();
+      for(const it of items){
+        const key = (it.text||'').trim(); if(!key) continue;
+        if(!map.has(key)) map.set(key, { text:key, detail:it.detail||'', weight:0, count:0 });
+        const o = map.get(key); o.weight += Number(it.weight||1); o.count += 1; if(it.detail && !o.detail) o.detail = it.detail;
+      }
+      return Array.from(map.values());
+    }
+
+    function clearGroup(){
+      while(group.children.length){
+        const c = group.children.pop();
+        if(c.element && c.element.remove) c.element.remove();
+        group.remove(c);
+      }
+    }
+
+    function colorFor(text){ let h=0; for(let i=0;i<text.length;i++) h=(h*31+text.charCodeAt(i))>>>0; return `hsl(${h%360} 70% 65%)`; }
+
+    function escapeHtml(s){ return s.replace(/[&<>\"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;'}[c])); }
+    function linkify(s){ const url=/((https?:\/\/)[^\s]+)/g; return escapeHtml(s).replace(url,'<a href="$1" target="_blank" rel="noopener">$1</a>'); }
+
+    // ===== CSV utilities =====
+    function parseCSV3(text){
+      const rows = []; let field = ''; let cur = []; let inQuotes = false;
+      const pushField = () => { cur.push(field); field = ''; };
+      const pushRow   = () => { rows.push(cur); cur = []; };
+      for (let i = 0; i < text.length; i++){
+        const ch = text[i];
+        if (inQuotes){
+          if (ch === '"'){
+            if (i + 1 < text.length && text[i + 1] === '"'){ field += '"'; i++; }
+            else { inQuotes = false; }
+          } else {
+            field += ch;
+          }
+        } else {
+          if (ch === '"') { inQuotes = true; }
+          else if (ch === ',') { pushField(); }
+          else if (ch === '
+') { pushField(); pushRow(); }
+          else if (ch === '
+') { /* skip CR */ }
+          else { field += ch; }
+        }
+      }
+      // last field/row
+      pushField(); if (cur.length > 1 || field !== '') { pushRow(); }
+      // Trim BOM if present
+      if (rows.length && rows[0].length && rows[0][0].charCodeAt && rows[0][0].charCodeAt(0) === 65279){
+        rows[0][0] = rows[0][0].slice(1);
+      }
+      return rows;
+    } else {
+            field += ch;
+          }
+        } else {
+          if (ch === '"') { inQuotes = true; }
+          else if (ch === ',') { pushField(); }
+          else if (ch === '
+') { pushField(); pushRow(); }
+          else if (ch === '
+') { /* skip CR */ }
+          else { field += ch; }
+        }
+      }
+      // last field/row
+      pushField(); if (cur.length > 1 || field !== '') { pushRow(); }
+      // Trim BOM if present
+      if (rows.length && rows[0].length && rows[0][0].charCodeAt && rows[0][0].charCodeAt(0) === 65279){
+        rows[0][0] = rows[0][0].slice(1);
+      }
+      return rows;
+    }
+    function importCSVData(csvText){
+      const rows = parseCSV3(csvText);
+      if(!rows.length){ alert('CSVが空です'); return; }
+      const header = rows[0].map(h => String(h||'').trim().toLowerCase());
+      let tIndex = header.indexOf('title');
+      let dIndex = header.indexOf('description');
+      let startRow = 1;
+      if(tIndex === -1 || dIndex === -1){
+        // fallback to fixed positions: pattern_number,title,description
+        tIndex = 1; dIndex = 2; startRow = 0;
+      }
+      const added = [];
+      for(let r=startRow; r<rows.length; r++){
+        const row = rows[r]; if(!row) continue;
+        const title = (row[tIndex]||'').trim();
+        const desc  = (row[dIndex]||'').trim();
+        const word  = desc;       // 言葉 ← description
+        const detailText = title; // 説明 ← title
+        if(!word) continue;
+        added.push({ text: word, detail: detailText, weight: 3, ts: Date.now() });
+      }
+      if(!added.length){ alert('CSVから取り込めるデータが見つかりません（title列が空）'); return; }
+      state.items = state.items.concat(added);
+      refresh();
+    }
+
+    function focusOn(obj){
+      const target = obj.position.clone();
+      const dir = target.clone().normalize();
+      const dist = 22 + (Math.random()*4);
+      const to = dir.multiplyScalar(dist);
+      const from = camera.position.clone();
+      const startTarget = controls.target.clone();
+      const steps = 30; let i=0; const iv = setInterval(()=>{
+        i++; const k = 1 - Math.pow(1 - i/steps, 3);
+        camera.position.lerpVectors(from, to, k);
+        const t = new THREE.Vector3().lerpVectors(startTarget, target, k);
+        controls.target.copy(t);
+        if(i>=steps) clearInterval(iv);
+      }, 16);
+    }
+
+    function addLabel(item){
+      const el = document.createElement('div'); el.className = 'label';
+      const size = 10 + Math.min(22, (item.weight||1)*3 + (item.count? item.count*1.5 : 0));
+      el.style.fontSize = size + 'px';
+      el.innerHTML = `<span class=\"word\" style=\"font-weight:600\">${escapeHtml(item.text)}</span>` +
+        (item.count? ` <span class=\"meta\">×${item.count}</span>` : '') +
+        (item.detail? `<div class=\"meta\" style=\"font-size:11px; margin-top:2px\">${linkify(item.detail)}</div>` : '');
+
+      const obj = new CSS2DObjectCtor(el);
+      obj.position.copy(randomOnSphere(radius));
+      obj.userData.v = new THREE.Vector3((Math.random()-0.5)*0.004,(Math.random()-0.5)*0.004,(Math.random()-0.5)*0.004);
+
+      el.addEventListener('click', (e)=>{
+        e.stopPropagation();
+        focusOn(obj);
+        info.style.display = 'block';
+        info.innerHTML = `<div class="head">${escapeHtml(item.text)}</div>` +
+          (item.detail? `<div>${linkify(item.detail)}</div>` : '<div class="muted">説明なし</div>');
+      });
+
+      group.add(obj);
+    }
+
+    function renderChips(){
+      const box = document.getElementById('chips'); box.innerHTML = '';
+      for(const it of state.items.slice().reverse()){
+        const d = document.createElement('div'); d.className = 'chip';
+        d.innerHTML = `<span>${escapeHtml(it.text)}</span><button class="del" title="削除">×</button>`;
+        d.querySelector('.del').addEventListener('click', ()=>{ state.items = state.items.filter(x=>x!==it); refresh(); });
+        box.appendChild(d);
+      }
+    }
+
+    function refresh(){
+      clearGroup();
+      const data = buildAggregated(state.items);
+      data.forEach(addLabel);
+      saveState();
+      renderChips();
+      // Sanity check in next frame: DOMラベル数と3Dオブジェクト数が一致しているか
+      requestAnimationFrame(()=>{
+        const domCount = labelRenderer.domElement.querySelectorAll('.label').length;
+        const objCount = group.children.length;
+        if(domCount !== objCount){
+          console.warn(`[CHECK] DOM labels (${domCount}) and objects (${objCount}) mismatch. Renderer GC ran; this is expected only during transitions.`);
+        }
+      });
+    }
+
+    // ---------- UI ----------
+    function on(id, evt, handler){ const el=document.getElementById(id); if(!el){ console.warn(`[UI] element #${id} not found`); return; } el.addEventListener(evt, handler); }
+    const form = document.getElementById('valueForm');
+    form.addEventListener('submit', (e)=>{
+      e.preventDefault();
+      const text = document.getElementById('text').value.trim();
+      const detail = document.getElementById('detail').value.trim();
+      const weight = Number(document.getElementById('weight').value);
+      if(!text) return;
+      state.items.push({ text, detail, weight, ts: Date.now() });
+      document.getElementById('text').value = '';
+      document.getElementById('detail').value = '';
+
+    on('autoRotate','change', (e)=>{ controls.autoRotate = e.target.checked; });
+    on('combineDups','change', ()=>{ refresh(); });
+
+    on('exportBtn','click', ()=>{
+      const blob = new Blob([JSON.stringify(state, null, 2)], {type:'application/json'});
+      const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'values-cloud.json'; a.click(); URL.revokeObjectURL(a.href);
+    });
+    on('importBtn','click', ()=>{
+      const inp = document.createElement('input'); inp.type = 'file'; inp.accept = '.json,.csv,application/json,text/csv';
+      inp.onchange = ()=>{
+        const file = inp.files?.[0]; if(!file) return;
+        const fr = new FileReader();
+        fr.onload = ()=>{
+          const raw = String(fr.result || '').trim();
+          const name = (file.name||'').toLowerCase();
+          if(name.endsWith('.json') || raw.startsWith('{') || raw.startsWith('{"')){
+            try{
+              const obj = JSON.parse(raw);
+              if(obj && Array.isArray(obj.items)){ state = obj; refresh(); return; }
+              alert('JSONの形式が不正です（itemsが見つかりません）'); return;
+            }catch(e){ alert('JSONの読み込みに失敗しました: '+ e.message); return; }
+          }
+          try{ importCSVData(raw); } catch(e){ console.error(e); alert('CSVの読み込みに失敗しました: '+ e.message); }
+        };
+        fr.readAsText(file);
+      };
+      inp.click();
+    });
+
+    on('resetBtn','click', ()=>{
+      if(!confirm('すべての内容を削除します。よろしいですか？')) return;
+      state = { items: [] };
+      saveState();
+      refresh();
+    });
+
+    on('toggleMenu','click', ()=>{
+      const closed = document.body.classList.toggle('menu-closed');
+      const btn = document.getElementById('toggleMenu');
+      if(btn){ btn.setAttribute('aria-pressed', closed ? 'true' : 'false'); btn.textContent = closed ? 'メニューを開く' : 'メニューを閉じる'; }
+      onResize();
+    });
+      refresh();
+    });
+
+    // 背景クリックで info を閉じ、ターゲットを原点へ
+    // pointer-events は WebGL canvas が受ける
+    renderer.domElement.addEventListener('click', (e)=>{
+      if(e.target !== renderer.domElement) return; // ラベルクリックは除外
+      info.style.display = 'none';
+      const from = controls.target.clone();
+      const steps = 24; let i=0; const iv=setInterval(()=>{ i++; const k=i/steps; controls.target.lerpVectors(from, new THREE.Vector3(0,0,0), k); if(i>=steps) clearInterval(iv); }, 16);
+    });
+
+    // ---------- Loop & Resize ----------
+    function animate(){
+      requestAnimationFrame(animate);
+      for(const obj of group.children){ obj.position.add(obj.userData.v); if(obj.position.length() > radius*1.2){ obj.position.setLength(radius); obj.userData.v.multiplyScalar(-1); } }
+      controls.update(); renderer.render(scene, camera); labelRenderer.render(scene, camera);
+    }
+    function onResize(){ const w=holder.clientWidth, h=holder.clientHeight; camera.aspect=w/h; camera.updateProjectionMatrix(); renderer.setSize(w,h); labelRenderer.setSize(w,h); }
+    window.addEventListener('resize', onResize);
+
+    // ---------- Self Test (console) ----------
+    (function selfTest(){
+      console.assert(controls && typeof controls.update === 'function', '[TEST] controls.update が存在しません');
+      console.assert(controls.target && typeof controls.target.set === 'function', '[TEST] controls.target が THREE.Vector3 ではありません');
+      // CSV basic (LF)
+      const csv1 = `pattern_number,title,description
+1,主体性,自分から動く`;
+      const r1 = parseCSV3(csv1);
+      console.assert(r1.length===2 && r1[0][1]==='title' && r1[1][1]==='主体性', '[CSV TEST] basic 失敗');
+      // CSV quoted + multiline description
+      const csv2 = `pattern_number,title,description
+2,"探究,心","複数行
+説明"`;
+      const r2 = parseCSV3(csv2);
+      console.assert(r2[1][1]==='探究,心' && r2[1][2].includes('複数行'), '[CSV TEST] quoted 失敗');
+      // CSV CRLF
+      const csv3 = `pattern_number,title,description
+3,協働,皆で助け合う`;
+      const r3 = parseCSV3(csv3);
+      console.assert(r3.length===2 && r3[1][1]==='協働', '[CSV TEST] CRLF 失敗');
+      // Headerless fallback
+      const csv4 = `1,尊重,相手の意見を尊重する`;
+      const r4 = parseCSV3(csv4);
+      console.assert(r4.length===1 && r4[0][1]==='尊重', '[CSV TEST] headerless 失敗');
+    })();
+
+    // init
+    refresh(); animate(); onResize();
+  });
+  </script>
+</body>
+</html>
