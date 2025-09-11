@@ -491,6 +491,8 @@
       state.items.push({ text, detail, weight, ts: Date.now() });
       document.getElementById('text').value = '';
       document.getElementById('detail').value = '';
+      refresh();
+    });
 
     on('autoRotate','change', (e)=>{ controls.autoRotate = e.target.checked; });
     on('combineDups','change', ()=>{ refresh(); });
