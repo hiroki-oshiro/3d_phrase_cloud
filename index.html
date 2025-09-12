@@ -651,6 +651,8 @@
     // ---------- Loop & Resize ----------
     function animate(){
       requestAnimationFrame(animate);
+      const minDist = camera.position.length() - radius;
+      const maxDist = camera.position.length() + radius;
       for(const obj of group.children){
         obj.position.add(obj.userData.v);
         if(obj.position.length() > radius*1.2){
@@ -658,7 +660,10 @@
           obj.userData.v.multiplyScalar(-1);
         }
         const distance = camera.position.distanceTo(obj.position);
-        const opacity = THREE.MathUtils.clamp(1 - (distance / (radius*1.5)), 0.2, 1);
+        const opacity = THREE.MathUtils.clamp(
+          1 - (distance - minDist) / (maxDist - minDist),
+          0.2, 1
+        );
         obj.element.style.opacity = opacity;
       }
       controls.update();
