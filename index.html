@@ -353,7 +353,8 @@
     const holder = document.getElementById('canvas');
     const scene = new THREE.Scene();
     scene.fog = new THREE.FogExp2('#0b1020', 0.008);
-    const camera = new THREE.PerspectiveCamera(55, holder.clientWidth/holder.clientHeight, 0.1, 2000);
+    const camera = new THREE.PerspectiveCamera(70, holder.clientWidth/holder.clientHeight, 0.1, 2000);
+    camera.updateProjectionMatrix();
     camera.position.set(0, 0, 60);
 
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
@@ -499,6 +500,7 @@
       const el = document.createElement('div'); el.className = 'label';
       const size = 10 + Math.min(22, (item.weight||1)*3 + (item.count? item.count*1.5 : 0));
       el.style.fontSize = size + 'px';
+      el.dataset.baseSize = size;
       const wrapped = escapeHtml(item.text).replace(/(.{40})/g, '$1<wbr>');
       el.innerHTML = `<span class=\"word\" style=\"font-weight:600\">${wrapped}</span>` +
         (item.count > 1 ? ` <span class=\"meta\">×${item.count}</span>` : '') +
@@ -649,8 +651,25 @@
     // ---------- Loop & Resize ----------
     function animate(){
       requestAnimationFrame(animate);
-      for(const obj of group.children){ obj.position.add(obj.userData.v); if(obj.position.length() > radius*1.2){ obj.position.setLength(radius); obj.userData.v.multiplyScalar(-1); } }
-      controls.update(); renderer.render(scene, camera); labelRenderer.render(scene, camera);
+      for(const obj of group.children){
+        obj.position.add(obj.userData.v);
+        if(obj.position.length() > radius*1.2){
+          obj.position.setLength(radius);
+          obj.userData.v.multiplyScalar(-1);
+        }
+        const distance = camera.position.distanceTo(obj.position);
+        const opacity = THREE.MathUtils.clamp(1 - (distance / (radius*1.5)), 0.2, 1);
+        obj.element.style.opacity = opacity;
+      }
+      controls.update();
+      renderer.render(scene, camera);
+      labelRenderer.render(scene, camera);
+      for(const obj of group.children){
+        const distance = camera.position.distanceTo(obj.position);
+        const scale = radius / distance;
+        const el = obj.element;
+        el.style.transform = el.style.transform.replace(/scale\([^)]*\)/, '') + ` scale(${scale})`;
+      }
     }
     function onResize(){
       const w=holder.clientWidth, h=holder.clientHeight;
